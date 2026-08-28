@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/feedback/((?!general).*)",
+      "dest": "/api/feedback/general"
+    },
+    {
       "src": "/(.*)",
       "dest": "core/wsgi.py"
     }
