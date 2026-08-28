@@ -33,6 +33,10 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 # In development with DEBUG=True, Django allows localhost automatically.
 ALLOWED_HOSTS = list(filter(None, os.environ.get("ALLOWED_HOSTS", "").split(",")))
 
+# Vercel serverless: always allow .vercel.app domains and localhost
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ["*"]  # Fallback — tighten via env var in production
+
 
 # ──────────────────────────────────────────────
 # INSTALLED APPS
@@ -115,8 +119,10 @@ TEMPLATES = [
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
+        # conn_max_age=0 on Vercel: serverless functions are stateless,
+        # persistent connections cause errors between invocations.
+        conn_max_age=0,
+        conn_health_checks=False,
     )
 }
 
@@ -214,7 +220,10 @@ SIMPLE_JWT = {
 # These settings are enabled only in production (DEBUG=False).
 # They enforce HTTPS, secure cookies, and HSTS.
 if not DEBUG:
-    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
+    # Vercel terminates SSL at the edge and forwards requests as HTTP internally.
+    # SECURE_SSL_REDIRECT=True would cause infinite redirect loops on Vercel.
+    # Default is False; set env var SECURE_SSL_REDIRECT=True only on non-Vercel hosts.
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "False") == "True"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
