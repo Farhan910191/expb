@@ -182,6 +182,8 @@ else:
     CORS_ALLOWED_ORIGINS = list(
         filter(None, os.environ.get("CORS_ALLOWED_ORIGINS", "").split(","))
     )
+    if not CORS_ALLOWED_ORIGINS:
+        CORS_ALLOW_ALL_ORIGINS = True
 
 # Explicitly allow common headers including Authorization (for JWT)
 CORS_ALLOW_HEADERS = [
