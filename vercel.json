@@ -3,20 +3,17 @@
   "builds": [
     {
       "src": "core/wsgi.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.12"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/feedback/((?!general).*)",
-      "dest": "/api/feedback/general"
-    },
-    {
       "src": "/(.*)",
       "dest": "core/wsgi.py"
     }
-  ],
-  "env": {
-    "DJANGO_SETTINGS_MODULE": "core.settings"
-  }
+  ]
 }

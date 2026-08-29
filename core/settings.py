@@ -4,6 +4,10 @@ from datetime import timedelta
 
 import dj_database_url
 
+# Detect Vercel serverless environment
+# Vercel automatically sets the VERCEL env var to "1" during builds and at runtime.
+IS_VERCEL = os.environ.get("VERCEL", "") == "1"
+
 # ──────────────────────────────────────────────
 # BASE DIRECTORY
 # ──────────────────────────────────────────────
@@ -153,13 +157,19 @@ USE_TZ = True
 # URL prefix for static files
 STATIC_URL = "/static/"
 
-# Directory where `collectstatic` gathers all static files for production
-STATIC_ROOT = BASE_DIR / "staticfiles"
+# Directory where `collectstatic` gathers all static files for production.
+# On Vercel, the lambda filesystem is read-only except /tmp.
+if IS_VERCEL:
+    STATIC_ROOT = "/tmp/staticfiles"
+else:
+    STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# WhiteNoise compresses & caches static files for fast serving
+# WhiteNoise compresses & caches static files for fast serving.
+# Use CompressedStaticFilesStorage (not Manifest variant) to avoid
+# "Missing staticfiles manifest" errors on Vercel cold starts.
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
@@ -170,7 +180,7 @@ STORAGES = {
 # Allows your React frontend (on a different domain) to call this API.
 #
 # In production, set env var:
-#   CORS_ALLOWED_ORIGINS=https://yourusername.github.io,https://yourdomain.com
+#   CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app,https://yourdomain.com
 #
 # In development (DEBUG=True), all origins are allowed automatically.
 if DEBUG:
@@ -179,6 +189,19 @@ else:
     CORS_ALLOWED_ORIGINS = list(
         filter(None, os.environ.get("CORS_ALLOWED_ORIGINS", "").split(","))
     )
+
+# Explicitly allow common headers including Authorization (for JWT)
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # CSRF trusted origins for cross-origin POST requests (if needed)
 CSRF_TRUSTED_ORIGINS = list(
