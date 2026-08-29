@@ -4,10 +4,6 @@ from datetime import timedelta
 
 import dj_database_url
 
-# Detect Vercel serverless environment
-# Vercel automatically sets the VERCEL env var to "1" during builds and at runtime.
-IS_VERCEL = os.environ.get("VERCEL", "") == "1"
-
 # ──────────────────────────────────────────────
 # BASE DIRECTORY
 # ──────────────────────────────────────────────
@@ -158,11 +154,8 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 # Directory where `collectstatic` gathers all static files for production.
-# On Vercel, the lambda filesystem is read-only except /tmp.
-if IS_VERCEL:
-    STATIC_ROOT = "/tmp/staticfiles"
-else:
-    STATIC_ROOT = BASE_DIR / "staticfiles"
+# Run `python manage.py collectstatic` locally and commit the staticfiles/ dir.
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # WhiteNoise compresses & caches static files for fast serving.
 # Use CompressedStaticFilesStorage (not Manifest variant) to avoid
