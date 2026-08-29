@@ -1,0 +1,4 @@
+# Force LF line endings for files that Vercel/Linux will parse
+requirements.txt text eol=lf
+runtime.txt text eol=lf
+vercel.json text eol=lf
