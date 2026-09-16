@@ -59,6 +59,12 @@ INSTALLED_APPS = [
     "expenses",                      # Expense Manager app
 ]
 
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".vercel.app",
+]
+
 
 # ──────────────────────────────────────────────
 # MIDDLEWARE
