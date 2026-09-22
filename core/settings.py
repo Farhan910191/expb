@@ -6,25 +6,45 @@ import dj_database_url
 
 
 # ============================================================
-# BASE DIRECTORY
+# BASE DIRECTORY & ENVIRONMENT VARIABLES
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load local .env file natively if it exists (no external package required)
+_env_file = BASE_DIR / ".env"
+if _env_file.exists():
+    with open(_env_file, encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip().strip("'\""))
+
+
+# ============================================================
+# ENVIRONMENT
+# ============================================================
+
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "local").lower()
+
+DEBUG = (
+    os.environ.get(
+        "DEBUG",
+        "True" if ENVIRONMENT == "local" else "False",
+    ).lower()
+    == "true"
+)
 
 
 # ============================================================
 # SECURITY
 # ============================================================
 
-# IMPORTANT:
-# Add SECRET_KEY in Vercel Environment Variables.
 SECRET_KEY = os.environ.get(
     "SECRET_KEY",
     "django-insecure-local-development-only-change-this",
 )
-
-# Always False in production.
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
 
 # ============================================================
@@ -37,7 +57,6 @@ ALLOWED_HOSTS = [
     ".vercel.app",
 ]
 
-# Allow additional hosts from Vercel environment variables.
 extra_hosts = os.environ.get("ALLOWED_HOSTS", "")
 
 if extra_hosts:
@@ -78,19 +97,29 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
 
-    # Static files
+    # WhiteNoise
     "whitenoise.middleware.WhiteNoiseMiddleware",
 
+    # Sessions
     "django.contrib.sessions.middleware.SessionMiddleware",
 
-    # CORS must be before CommonMiddleware
+    # CORS
+    # IMPORTANT:
+    # CORS middleware must be before CommonMiddleware.
     "corsheaders.middleware.CorsMiddleware",
 
     "django.middleware.common.CommonMiddleware",
+
+    # CSRF
     "django.middleware.csrf.CsrfViewMiddleware",
 
+    # Authentication
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+
+    # Messages
     "django.contrib.messages.middleware.MessageMiddleware",
+
+    # Security
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -119,7 +148,9 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
+
                 "django.contrib.auth.context_processors.auth",
+
                 "django.contrib.messages.context_processors.messages",
             ],
         },
@@ -131,15 +162,10 @@ TEMPLATES = [
 # DATABASE
 # ============================================================
 
-# Local:
-#     SQLite will be used if DATABASE_URL does not exist.
-#
-# Vercel:
-#     PostgreSQL will be used when DATABASE_URL exists.
-
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
+
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
@@ -147,7 +173,9 @@ if DATABASE_URL:
             conn_health_checks=False,
         )
     }
+
 else:
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -167,18 +195,21 @@ AUTH_PASSWORD_VALIDATORS = [
             "UserAttributeSimilarityValidator"
         )
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "MinimumLengthValidator"
         )
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "CommonPasswordValidator"
         )
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
@@ -194,7 +225,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 
 USE_I18N = True
 
@@ -211,7 +242,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": (
+            "whitenoise.storage.CompressedStaticFilesStorage"
+        ),
     },
 }
 
@@ -220,21 +253,64 @@ STORAGES = {
 # CORS
 # ============================================================
 
-# Example:
-# CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
+# ------------------------------------------------------------
+# Local React / Vite frontend
+# ------------------------------------------------------------
 
-CORS_ALLOWED_ORIGINS = [
+LOCAL_FRONTEND_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+
+# ------------------------------------------------------------
+# Production frontend origins
+# ------------------------------------------------------------
+
+ENV_CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
         "CORS_ALLOWED_ORIGINS",
-        ""
+        "",
     ).split(",")
     if origin.strip()
 ]
 
-# Development convenience.
+
+# ------------------------------------------------------------
+# Final allowed CORS origins
+# ------------------------------------------------------------
+
+CORS_ALLOWED_ORIGINS = list(
+    dict.fromkeys(
+        LOCAL_FRONTEND_ORIGINS
+        + ENV_CORS_ORIGINS
+    )
+)
+
+# Automatically allow all Vercel deployed frontend origins
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+
+
+# ============================================================
+# CORS CREDENTIALS
+# ============================================================
+
+# You are using JWT authentication.
+#
+# JWT is normally sent using:
+#
+# Authorization: Bearer <token>
+#
+# Therefore keep this False unless you specifically
+# start using authentication cookies.
+
+CORS_ALLOW_CREDENTIALS = False
 
 
 # ============================================================
@@ -255,6 +331,20 @@ CORS_ALLOW_HEADERS = [
 
 
 # ============================================================
+# CORS METHODS
+# ============================================================
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+
+# ============================================================
 # CSRF
 # ============================================================
 
@@ -262,10 +352,17 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
         "CSRF_TRUSTED_ORIGINS",
-        ""
+        "",
     ).split(",")
     if origin.strip()
 ]
+
+
+# Add local frontend automatically
+for origin in LOCAL_FRONTEND_ORIGINS:
+
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 
 # ============================================================
@@ -280,9 +377,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================
 
 REST_FRAMEWORK = {
+
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+
 }
 
 
@@ -291,9 +390,15 @@ REST_FRAMEWORK = {
 # ============================================================
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
 
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        days=7
+    ),
+
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=30
+    ),
+
 }
 
 
@@ -303,7 +408,10 @@ SIMPLE_JWT = {
 
 if not DEBUG:
 
-    # Do NOT force HTTPS redirect on Vercel.
+    # --------------------------------------------------------
+    # HTTPS Redirect
+    # --------------------------------------------------------
+
     SECURE_SSL_REDIRECT = (
         os.environ.get(
             "SECURE_SSL_REDIRECT",
@@ -312,15 +420,30 @@ if not DEBUG:
         == "true"
     )
 
+
+    # --------------------------------------------------------
+    # Secure Cookies
+    # --------------------------------------------------------
+
     SESSION_COOKIE_SECURE = True
 
     CSRF_COOKIE_SECURE = True
+
+
+    # --------------------------------------------------------
+    # HSTS
+    # --------------------------------------------------------
 
     SECURE_HSTS_SECONDS = 31536000
 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
     SECURE_HSTS_PRELOAD = True
+
+
+    # --------------------------------------------------------
+    # Vercel / Proxy HTTPS
+    # --------------------------------------------------------
 
     SECURE_PROXY_SSL_HEADER = (
         "HTTP_X_FORWARDED_PROTO",
