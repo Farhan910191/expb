@@ -166,12 +166,16 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
 
+    db_config = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=0,
+        conn_health_checks=False,
+    )
+    db_config.setdefault("OPTIONS", {})
+    db_config["OPTIONS"].setdefault("connect_timeout", 10)
+
     DATABASES = {
-        "default": dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=0,
-            conn_health_checks=False,
-        )
+        "default": db_config
     }
 
 else:
@@ -216,6 +220,16 @@ AUTH_PASSWORD_VALIDATORS = [
             "NumericPasswordValidator"
         )
     },
+]
+
+
+# ============================================================
+# AUTHENTICATION BACKENDS
+# ============================================================
+
+AUTHENTICATION_BACKENDS = [
+    "expenses.backends.CaseInsensitiveEmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 

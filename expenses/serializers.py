@@ -3,34 +3,57 @@ from django.contrib.auth.models import User
 from .models import Expense, Income, Category, Budget, Notification, UserProfile
 
 
+from django.db import transaction
+
 class UserSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(required=False)
+    email = serializers.EmailField(required=True)
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'password']
         extra_kwargs = {'password': {'write_only': True}}
 
+    def validate_username(self, value):
+        clean_value = value.strip()
+        if not clean_value:
+            raise serializers.ValidationError("Username cannot be empty.")
+        if User.objects.filter(username__iexact=clean_value).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+        if User.objects.filter(email__iexact=clean_value).exists():
+            raise serializers.ValidationError("This username is already taken by another account.")
+        return clean_value
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        clean_email = value.strip().lower()
+        if User.objects.filter(email__iexact=clean_email).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        if User.objects.filter(username__iexact=clean_email).exists():
+            raise serializers.ValidationError("This email is already taken as a username.")
+        return clean_email
+
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        # Create default categories for the new user
-        default_cats = [
-            ('Food', '🍔', '#E53935'),
-            ('Transport', '🚗', '#5C6BC0'),
-            ('Bills', '💡', '#FF9800'),
-            ('Shopping', '🛍️', '#AB47BC'),
-            ('Health', '🏥', '#4CAF50'),
-            ('Entertainment', '🎮', '#00BCD4'),
-            ('Education', '📚', '#795548'),
-            ('Salary', '💰', '#4CAF50'),
-            ('Freelance', '💻', '#2196F3'),
-            ('Investment', '📈', '#C4944A'),
-        ]
-        for name, icon, color in default_cats:
-            Category.objects.create(user=user, name=name, icon=icon, color=color)
-        # Create user profile
-        UserProfile.objects.create(user=user)
-        return user
+        with transaction.atomic():
+            user = User.objects.create_user(**validated_data)
+            # Create default categories for the new user
+            default_cats = [
+                ('Food', '🍔', '#E53935'),
+                ('Transport', '🚗', '#5C6BC0'),
+                ('Bills', '💡', '#FF9800'),
+                ('Shopping', '🛍️', '#AB47BC'),
+                ('Health', '🏥', '#4CAF50'),
+                ('Entertainment', '🎮', '#00BCD4'),
+                ('Education', '📚', '#795548'),
+                ('Salary', '💰', '#4CAF50'),
+                ('Freelance', '💻', '#2196F3'),
+                ('Investment', '📈', '#C4944A'),
+            ]
+            for name, icon, color in default_cats:
+                Category.objects.get_or_create(user=user, name=name, defaults={'icon': icon, 'color': color})
+            # Create user profile safely
+            UserProfile.objects.get_or_create(user=user)
+            return user
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

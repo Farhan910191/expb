@@ -20,7 +20,18 @@ class SignupView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        errors = serializer.errors
+        error_messages = []
+        for field, messages in errors.items():
+            if isinstance(messages, list):
+                for m in messages:
+                    error_messages.append(str(m))
+            else:
+                error_messages.append(str(messages))
+
+        detail_msg = ", ".join(error_messages) if error_messages else "Signup failed."
+        return Response({'detail': detail_msg, 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProfileView(APIView):
