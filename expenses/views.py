@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Sum
 from django.contrib.auth.hashers import check_password
 from .models import Expense, Income, Category, Budget, Notification, UserProfile
@@ -12,14 +13,19 @@ from .serializers import (
 
 
 class SignupView(APIView):
-    """Register a new user. Creates default categories and profile."""
+    """Register a new user. Creates default categories and profile, and returns JWT tokens."""
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'message': 'User created successfully',
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            }, status=status.HTTP_201_CREATED)
 
         errors = serializer.errors
         error_messages = []
