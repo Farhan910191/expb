@@ -1,13 +1,20 @@
 import os
 from pathlib import Path
 from datetime import timedelta
-from urllib.parse import urlparse, parse_qsl
+
+import dj_database_url
 from dotenv import load_dotenv
+
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
 
 load_dotenv()
 
+
 # ============================================================
-# BASE DIRECTORY & ENVIRONMENT VARIABLES
+# BASE DIRECTORY
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,6 +53,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".vercel.app",
+    ".onrender.com",
 ]
 
 extra_hosts = os.environ.get("ALLOWED_HOSTS", "")
@@ -95,8 +103,6 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
 
     # CORS
-    # IMPORTANT:
-    # CORS middleware must be before CommonMiddleware.
     "corsheaders.middleware.CorsMiddleware",
 
     "django.middleware.common.CommonMiddleware",
@@ -131,17 +137,12 @@ WSGI_APPLICATION = "core.wsgi.application"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-
         "DIRS": [],
-
         "APP_DIRS": True,
-
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
-
                 "django.contrib.auth.context_processors.auth",
-
                 "django.contrib.messages.context_processors.messages",
             ],
         },
@@ -152,27 +153,36 @@ TEMPLATES = [
 # ============================================================
 # DATABASE
 # ============================================================
+#
+# LOCAL:
+#     SQLite
+#
+# PRODUCTION:
+#     PostgreSQL using DATABASE_URL
+#
+# This prevents local `migrate` from trying to connect
+# to an unavailable PostgreSQL server.
+# ============================================================
 
-database_url = os.getenv("DATABASE_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-if database_url:
-    tmpPostgres = urlparse(database_url)
+if ENVIRONMENT == "production" and DATABASE_URL:
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': tmpPostgres.path.replace('/', ''),
-            'USER': tmpPostgres.username,
-            'PASSWORD': tmpPostgres.password,
-            'HOST': tmpPostgres.hostname,
-            'PORT': 5432,
-            'OPTIONS': dict(parse_qsl(tmpPostgres.query)),
-        }
+        "default": dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
     }
+
 else:
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 
@@ -188,21 +198,18 @@ AUTH_PASSWORD_VALIDATORS = [
             "UserAttributeSimilarityValidator"
         )
     },
-
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "MinimumLengthValidator"
         )
     },
-
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "CommonPasswordValidator"
         )
     },
-
     {
         "NAME": (
             "django.contrib.auth.password_validation."
@@ -245,9 +252,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STORAGES = {
     "staticfiles": {
-        "BACKEND": (
-            "whitenoise.storage.CompressedStaticFilesStorage"
-        ),
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
@@ -256,19 +261,10 @@ STORAGES = {
 # CORS
 # ============================================================
 
-# ------------------------------------------------------------
-# Local React / Vite frontend
-# ------------------------------------------------------------
-
 LOCAL_FRONTEND_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
-
-
-# ------------------------------------------------------------
-# Production frontend origins
-# ------------------------------------------------------------
 
 ENV_CORS_ORIGINS = [
     origin.strip()
@@ -279,22 +275,18 @@ ENV_CORS_ORIGINS = [
     if origin.strip()
 ]
 
-
-# ------------------------------------------------------------
-# Final allowed CORS origins
-# ------------------------------------------------------------
-
 CORS_ALLOWED_ORIGINS = list(
     dict.fromkeys(
-        LOCAL_FRONTEND_ORIGINS
-        + ENV_CORS_ORIGINS
+        LOCAL_FRONTEND_ORIGINS + ENV_CORS_ORIGINS
     )
 )
 
-# Automatically allow all Vercel deployed frontend origins
+
+# Allow Vercel frontend
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
 ]
+
 
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
@@ -304,14 +296,8 @@ if DEBUG:
 # CORS CREDENTIALS
 # ============================================================
 
-# You are using JWT authentication.
-#
-# JWT is normally sent using:
-#
+# JWT uses:
 # Authorization: Bearer <token>
-#
-# Therefore keep this False unless you specifically
-# start using authentication cookies.
 
 CORS_ALLOW_CREDENTIALS = False
 
@@ -361,11 +347,16 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-# Add local frontend automatically
+# Add local frontend
 for origin in LOCAL_FRONTEND_ORIGINS:
-
     if origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
+
+
+# Automatically trust Vercel frontend
+CSRF_TRUSTED_ORIGINS.append(
+    "https://*.vercel.app"
+)
 
 
 # ============================================================
@@ -380,11 +371,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================
 
 REST_FRAMEWORK = {
-
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-
 }
 
 
@@ -393,15 +382,8 @@ REST_FRAMEWORK = {
 # ============================================================
 
 SIMPLE_JWT = {
-
-    "ACCESS_TOKEN_LIFETIME": timedelta(
-        days=7
-    ),
-
-    "REFRESH_TOKEN_LIFETIME": timedelta(
-        days=30
-    ),
-
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
 
@@ -411,10 +393,6 @@ SIMPLE_JWT = {
 
 if not DEBUG:
 
-    # --------------------------------------------------------
-    # HTTPS Redirect
-    # --------------------------------------------------------
-
     SECURE_SSL_REDIRECT = (
         os.environ.get(
             "SECURE_SSL_REDIRECT",
@@ -423,30 +401,15 @@ if not DEBUG:
         == "true"
     )
 
-
-    # --------------------------------------------------------
-    # Secure Cookies
-    # --------------------------------------------------------
-
     SESSION_COOKIE_SECURE = True
 
     CSRF_COOKIE_SECURE = True
-
-
-    # --------------------------------------------------------
-    # HSTS
-    # --------------------------------------------------------
 
     SECURE_HSTS_SECONDS = 31536000
 
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 
     SECURE_HSTS_PRELOAD = True
-
-
-    # --------------------------------------------------------
-    # Vercel / Proxy HTTPS
-    # --------------------------------------------------------
 
     SECURE_PROXY_SSL_HEADER = (
         "HTTP_X_FORWARDED_PROTO",
