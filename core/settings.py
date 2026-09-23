@@ -54,6 +54,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     ".vercel.app",
     ".onrender.com",
+    "monetra7.vercel.app",
 ]
 
 extra_hosts = os.environ.get("ALLOWED_HOSTS", "")
@@ -275,9 +276,13 @@ ENV_CORS_ORIGINS = [
     if origin.strip()
 ]
 
+PRODUCTION_FRONTEND_ORIGINS = [
+    "https://monetra7.vercel.app",
+]
+
 CORS_ALLOWED_ORIGINS = list(
     dict.fromkeys(
-        LOCAL_FRONTEND_ORIGINS + ENV_CORS_ORIGINS
+        LOCAL_FRONTEND_ORIGINS + PRODUCTION_FRONTEND_ORIGINS + ENV_CORS_ORIGINS
     )
 )
 
@@ -352,6 +357,10 @@ for origin in LOCAL_FRONTEND_ORIGINS:
     if origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
+# Add production frontend
+for origin in PRODUCTION_FRONTEND_ORIGINS:
+    if origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Automatically trust Vercel frontend
 CSRF_TRUSTED_ORIGINS.append(
