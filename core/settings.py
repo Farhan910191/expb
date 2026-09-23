@@ -167,8 +167,9 @@ TEMPLATES = [
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-if ENVIRONMENT == "production" and DATABASE_URL:
-
+if DATABASE_URL:
+    # Use PostgreSQL whenever DATABASE_URL is provided
+    # (production on Vercel/Render, or local with Neon)
     DATABASES = {
         "default": dj_database_url.config(
             default=DATABASE_URL,
@@ -179,7 +180,7 @@ if ENVIRONMENT == "production" and DATABASE_URL:
     }
 
 else:
-
+    # Fallback to SQLite for local development without DATABASE_URL
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
